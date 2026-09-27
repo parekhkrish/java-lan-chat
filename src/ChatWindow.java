@@ -1,7 +1,9 @@
 
 import java.awt.*;
 import java.awt.event.*;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
@@ -12,6 +14,7 @@ class ChatWindow extends Frame implements ActionListener{
     Button connect, send;
     Socket socket;
     PrintWriter out;
+    BufferedReader in;
 
     public ChatWindow() {
         setSize(700, 700);
@@ -19,6 +22,7 @@ class ChatWindow extends Frame implements ActionListener{
         setLayout(null);
 
         addWindowListener(new WindowAdapter() {
+            @Override 
             public void windowClosing(WindowEvent e) {
                 dispose();
             }
@@ -57,10 +61,31 @@ class ChatWindow extends Frame implements ActionListener{
         if (e.getSource() == connect) {
             try {
                 socket = new Socket("localhost", 8080);
+
                 out = new PrintWriter(socket.getOutputStream(), true);
+
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
                 message.append("Connected to server!\n");
                 connect.setEnabled(false);
+
+                Thread reciver = new Thread(() -> {
+                    try {
+                        String msg;
+                        while((msg = in.readLine()) != null){
+                            String receivedMsg = msg;
+                            EventQueue.invokeLater(()->{
+                                message.append(receivedMsg+"\n");
+                            });
+                        }
+                    } catch (IOException io) {
+                        EventQueue.invokeLater(() ->
+                            message.append("Disconnected from server.\n")
+                        );
+                    }
+                });
+
+                reciver.start();
 
             } catch (IOException ex) {
                 message.append("Connection failed!\n");
@@ -69,8 +94,8 @@ class ChatWindow extends Frame implements ActionListener{
         else if (e.getSource() == send) {
             String msg = typemassage.getText().trim();
 
-            if (!msg.isEmpty()) {
-                message.append(Name.getText() + ": " + msg + "\n");
+            if (!msg.isEmpty() && out != null) {
+                out.println(Name.getText() + ": " + msg);
                 typemassage.setText("");
             }
         }
